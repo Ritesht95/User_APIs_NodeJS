@@ -14,18 +14,18 @@ class User {
     try {
       const userData = req.body;
       const emailRegex = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
-      const user = UserModel.getUserData(userData.email);
-      if (!userData.fullname || userData.fullname.trim() === "") {
+      const user = UserModel.getUserData(userData.Email);
+      if (!userData.FullName || userData.FullName.trim() === "") {
         res.status(401).send({
           Status: "Failure",
           Message: "Please enter full name.",
         });
-      } else if (!emailRegex.test(userData.email)) {
+      } else if (!emailRegex.test(userData.Email)) {
         res.status(401).send({
           Status: "Failure",
           Message: "Please enter valid email address.",
         });
-      } else if (userData.password.length < 6) {
+      } else if (userData.Password.length < 6) {
         res.status(401).send({
           Status: "Failure",
           Message: "Please enter password with 6 or more characters.",
@@ -37,19 +37,37 @@ class User {
         });
       } else {
         const salt = 8;
-        userData.password = bcrypt.hashSync(userData.password, salt);
+        userData.Password = bcrypt.hashSync(userData.Password, salt);
         const newUser = new UserModel(
-          userData.fullname,
-          userData.email,
-          userData.password
+          userData.FullName,
+          userData.Email,
+          userData.Password
         );
         const result = newUser.save();
         if (result === true) {
-          res.status(200).send({
-            Status: "Success",
-            Message: "User has been registered successfully.",
-            Data: {},
-          });
+          jwt.sign(
+            { id: newUser.userId },
+            "jwt_secret",
+            async (err: any, token: any) => {
+              try {
+                newUser.Token = token;
+                const result1 = UserModel.updateUserData(newUser);
+                if (result1) {
+                  res.status(200).send({
+                    Status: "Success",
+                    Message: "User registered succesfully.",
+                    JWTToken: newUser.Token,
+                  });
+                }
+              } catch (error) {
+                res.status(400).send({
+                  Status: "Failure",
+                  Message: "Failed to login!",
+                  Error: error,
+                });
+              }
+            }
+          );
         }
       }
     } catch (err) {
@@ -82,7 +100,7 @@ class User {
         if (user) {
           bcrypt.compare(
             password,
-            user.password,
+            user.Password,
             (err: any, compResult: any) => {
               if (compResult === true) {
                 jwt.sign(
@@ -90,13 +108,13 @@ class User {
                   "jwt_secret",
                   async (err: any, token: any) => {
                     try {
-                      user.token = token;
+                      user.Token = token;
                       const result = UserModel.updateUserData(user);
                       if (result) {
                         res.status(200).send({
                           Status: "Success",
                           Message: "User logged in succesfully.",
-                          Data: user,
+                          JWTToken: user.Token,
                         });
                       }
                     } catch (error) {
